@@ -80,6 +80,11 @@ export type AgentCommandOpts = {
   streamParams?: AgentStreamParams;
   /** Explicit workspace directory override (for subagents to inherit parent workspace). */
   workspaceDir?: SpawnedRunMetadata["workspaceDir"];
+  /** Optional mission payload for tenant-gated runs. */
+  mission?: {
+    tenant_id?: string;
+    tenantId?: string;
+  };
 };
 
 export type AgentCommandIngressOpts = Omit<AgentCommandOpts, "senderIsOwner"> & {

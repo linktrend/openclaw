@@ -10,6 +10,7 @@ import type {
 
 const log = createSubsystemLogger("memory");
 const QMD_MANAGER_CACHE = new Map<string, MemorySearchManager>();
+const SUPABASE_MANAGER_CACHE = new Map<string, MemorySearchManager>();
 let managerRuntimePromise: Promise<typeof import("./manager-runtime.js")> | null = null;
 
 function loadManagerRuntime() {
@@ -75,6 +76,23 @@ export async function getMemorySearchManager(params: {
     }
   }
 
+  if (resolved.backend === "supabase" && resolved.supabase) {
+    const cacheKey = `supabase:${params.agentId}:${resolved.supabase.connectionString}:${resolved.supabase.tenantId ?? ""}`;
+    const cached = SUPABASE_MANAGER_CACHE.get(cacheKey);
+    if (cached) {
+      return { manager: cached };
+    }
+    try {
+      const { SupabaseMemoryProvider } = await import("./supabase-provider.js");
+      const provider = new SupabaseMemoryProvider(resolved.supabase);
+      SUPABASE_MANAGER_CACHE.set(cacheKey, provider);
+      return { manager: provider };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { manager: null, error: message };
+    }
+  }
+
   try {
     const { MemoryIndexManager } = await loadManagerRuntime();
     const manager = await MemoryIndexManager.get(params);
@@ -88,11 +106,13 @@ export async function getMemorySearchManager(params: {
 export async function closeAllMemorySearchManagers(): Promise<void> {
   const managers = Array.from(QMD_MANAGER_CACHE.values());
   QMD_MANAGER_CACHE.clear();
-  for (const manager of managers) {
+  const supabaseManagers = Array.from(SUPABASE_MANAGER_CACHE.values());
+  SUPABASE_MANAGER_CACHE.clear();
+  for (const manager of [...managers, ...supabaseManagers]) {
     try {
-      await manager.close?.();
+      await manager.close?.().catch(() => {});
     } catch (err) {
-      log.warn(`failed to close qmd memory manager: ${String(err)}`);
+      log.warn(`failed to close memory manager: ${String(err)}`);
     }
   }
   if (managerRuntimePromise !== null) {

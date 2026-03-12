@@ -193,6 +193,7 @@ export const agentHandlers: GatewayRequestHandlers = {
       spawnedBy?: string;
       inputProvenance?: InputProvenance;
       workspaceDir?: string;
+      mission?: { tenant_id?: string; tenantId?: string };
     };
     const senderIsOwner = resolveSenderIsOwnerFromClient(client);
     const cfg = loadConfig();
@@ -630,6 +631,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           spawnedBy: spawnedByValue,
           workspaceDir: request.workspaceDir,
         }),
+        mission: request.mission,
         senderIsOwner,
       },
       runId,

@@ -5,6 +5,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import type { ModelProviderAuthMode, ModelProviderConfig } from "../config/types.js";
 import { getShellEnvAppliedKeys } from "../infra/shell-env.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { resolveEnvVarViaGoogleSecretManager } from "../linktrend-native/google-secret-manager.js";
 import {
   normalizeOptionalSecretInput,
   normalizeSecretInput,
@@ -285,6 +286,15 @@ export async function resolveApiKeyForProvider(params: {
     };
   }
 
+  const gsmResolved = await resolveEnvApiKeyViaGsm(provider);
+  if (gsmResolved) {
+    return {
+      apiKey: gsmResolved.apiKey,
+      source: gsmResolved.source,
+      mode: "api-key",
+    };
+  }
+
   const customKey = resolveUsableCustomProviderApiKey({ cfg, provider });
   if (customKey) {
     return { apiKey: customKey.apiKey, source: customKey.source, mode: "api-key" };
@@ -318,6 +328,23 @@ export async function resolveApiKeyForProvider(params: {
       `Configure auth for this agent (${formatCliCommand("openclaw agents add <id>")}) or copy auth-profiles.json from the main agentDir.`,
     ].join(" "),
   );
+}
+
+async function resolveEnvApiKeyViaGsm(provider: string): Promise<EnvApiKeyResult | null> {
+  const normalized = normalizeProviderId(provider);
+  const candidates = PROVIDER_ENV_API_KEY_CANDIDATES[normalized] ?? [];
+  for (const envVar of candidates) {
+    const resolved = await resolveEnvVarViaGoogleSecretManager({ envVarName: envVar });
+    const value = normalizeOptionalSecretInput(resolved?.value);
+    if (!value) {
+      continue;
+    }
+    return {
+      apiKey: value,
+      source: resolved ? `${resolved.source}: ${envVar}` : `gsm: ${envVar}`,
+    };
+  }
+  return null;
 }
 
 export type EnvApiKeyResult = { apiKey: string; source: string };

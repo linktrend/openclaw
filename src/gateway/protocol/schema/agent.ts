@@ -112,6 +112,15 @@ export const AgentParamsSchema = Type.Object(
     label: Type.Optional(SessionLabelString),
     spawnedBy: Type.Optional(Type.String()),
     workspaceDir: Type.Optional(Type.String()),
+    mission: Type.Optional(
+      Type.Object(
+        {
+          tenant_id: Type.Optional(Type.String()),
+          tenantId: Type.Optional(Type.String()),
+        },
+        { additionalProperties: true },
+      ),
+    ),
   },
   { additionalProperties: false },
 );
