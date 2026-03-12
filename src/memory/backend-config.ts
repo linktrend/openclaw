@@ -18,6 +18,14 @@ export type ResolvedMemoryBackendConfig = {
   backend: MemoryBackend;
   citations: MemoryCitationsMode;
   qmd?: ResolvedQmdConfig;
+  supabase?: ResolvedSupabaseMemoryConfig;
+};
+
+export type ResolvedSupabaseMemoryConfig = {
+  connectionString: string;
+  tenantId?: string;
+  searchRpc: string;
+  scratchRpc: string;
 };
 
 export type ResolvedQmdCollection = {
@@ -300,6 +308,23 @@ export function resolveMemoryBackendConfig(params: {
 }): ResolvedMemoryBackendConfig {
   const backend = params.cfg.memory?.backend ?? DEFAULT_BACKEND;
   const citations = params.cfg.memory?.citations ?? DEFAULT_CITATIONS;
+  if (backend === "supabase") {
+    const connectionString = process.env.LINKTREND_SUPABASE_DB_URL?.trim();
+    if (!connectionString) {
+      return { backend: "builtin", citations };
+    }
+    return {
+      backend: "supabase",
+      citations,
+      supabase: {
+        connectionString,
+        tenantId: process.env.LINKTREND_TENANT_ID?.trim() || undefined,
+        searchRpc: "shared_memory.search_lessons",
+        scratchRpc: "scratch_memory.log_entry",
+      },
+    };
+  }
+
   if (backend !== "qmd") {
     return { backend: "builtin", citations };
   }

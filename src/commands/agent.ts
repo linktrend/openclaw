@@ -5,6 +5,7 @@ import { resolveAcpAgentPolicyError, resolveAcpDispatchPolicyError } from "../ac
 import { toAcpRuntimeError } from "../acp/runtime/errors.js";
 import { resolveAcpSessionCwd } from "../acp/runtime/session-identifiers.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { enforceTenantGate } from "../linktrend-native/security-gate.js";
 
 const log = createSubsystemLogger("commands/agent");
 import {
@@ -640,6 +641,15 @@ async function prepareAgentCommandExecution(
   });
   const workspaceDir = workspace.dir;
   const runId = opts.runId?.trim() || sessionId;
+  const security = await enforceTenantGate({
+    workspaceDir,
+    mission: opts.mission,
+    sessionKey,
+    runId,
+  });
+  if (security.authorizedTenantId) {
+    process.env.LINKTREND_TENANT_ID = security.authorizedTenantId;
+  }
   const acpManager = getAcpSessionManager();
   const acpResolution = sessionKey
     ? acpManager.resolveSession({
@@ -670,6 +680,7 @@ async function prepareAgentCommandExecution(
     workspaceDir,
     agentDir,
     runId,
+    security,
     acpManager,
     acpResolution,
   };
@@ -702,6 +713,7 @@ async function agentCommandInternal(
     workspaceDir,
     agentDir,
     runId,
+    security,
     acpManager,
     acpResolution,
   } = prepared;
@@ -729,6 +741,7 @@ async function agentCommandInternal(
       const startedAt = Date.now();
       registerAgentRunContext(runId, {
         sessionKey,
+        dprId: security.dprId,
       });
       emitAgentEvent({
         runId,
@@ -870,6 +883,7 @@ async function agentCommandInternal(
       registerAgentRunContext(runId, {
         sessionKey,
         verboseLevel: resolvedVerboseLevel,
+        dprId: security.dprId,
       });
     }
 

@@ -15,6 +15,7 @@ export type AgentRunContext = {
   sessionKey?: string;
   verboseLevel?: VerboseLevel;
   isHeartbeat?: boolean;
+  dprId?: string;
   /** Whether control UI clients should receive chat/agent updates for this run. */
   isControlUiVisible?: boolean;
 };
@@ -45,6 +46,9 @@ export function registerAgentRunContext(runId: string, context: AgentRunContext)
   if (context.isHeartbeat !== undefined && existing.isHeartbeat !== context.isHeartbeat) {
     existing.isHeartbeat = context.isHeartbeat;
   }
+  if (context.dprId && existing.dprId !== context.dprId) {
+    existing.dprId = context.dprId;
+  }
 }
 
 export function getAgentRunContext(runId: string) {
@@ -67,8 +71,13 @@ export function emitAgentEvent(event: Omit<AgentEventPayload, "seq" | "ts">) {
   const eventSessionKey =
     typeof event.sessionKey === "string" && event.sessionKey.trim() ? event.sessionKey : undefined;
   const sessionKey = isControlUiVisible ? (eventSessionKey ?? context?.sessionKey) : undefined;
+  const data =
+    context?.dprId && typeof event.data.dpr_id !== "string"
+      ? { ...event.data, dpr_id: context.dprId }
+      : event.data;
   const enriched: AgentEventPayload = {
     ...event,
+    data,
     sessionKey,
     seq: nextSeq,
     ts: Date.now(),
